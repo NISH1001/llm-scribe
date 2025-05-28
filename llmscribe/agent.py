@@ -3,7 +3,7 @@ from typing import List, Optional
 from pydantic_ai import Agent
 from pydantic_ai.settings import ModelSettings
 
-from llamp.schema import GenerationSample, MultiClassExample
+from llmscribe.schema import GenerationSample, MultiClassExample
 
 
 class GenerationAgent:
