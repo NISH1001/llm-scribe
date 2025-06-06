@@ -10,5 +10,6 @@ dependencies = [
     "marimo>=0.13.11",
     "pandas>=2.2.3",
     "pydantic-ai>=0.2.9",
+    "python-dotenv>=1.1.0",
     "scikit-learn>=1.6.1",
 ]

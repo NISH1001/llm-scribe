@@ -1,6 +1,15 @@
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, computed_field, field_validator
+
+
+class SampleType(Enum):
+    """Enum to identify different types of samples"""
+
+    PLAIN_TEXT = "plain_text"
+    SINGLE_LABEL = "single_label"
+    MULTI_LABEL = "multi_label"
 
 
 class BaseSample(BaseModel):
@@ -143,3 +152,46 @@ class MultiLabelGenerationSample(GenerationSample):
     def label(self) -> str:
         """Returns labels as a comma-separated string for compatibility."""
         return ",".join(self.labels) if self.labels else ""
+
+
+class PromptTemplate:
+    """Class to handle prompt templates and formatting"""
+
+    @staticmethod
+    def get_base_template() -> str:
+        return """
+Based on these {num_examples} input examples:
+{examples_text}
+
+Generate {num_samples} new samples that follow the same pattern and style.
+
+Each generated sample should:
+{requirements}
+
+Focus on understanding the underlying patterns in the examples and creating variations that preserve the core characteristics.
+"""
+
+    @staticmethod
+    def get_requirements_for_type(sample_type: SampleType) -> str:
+        """Get requirements text based on sample type"""
+        requirements_map = {
+            SampleType.PLAIN_TEXT: (
+                "- Include reasoning traces explaining why it matches the pattern\n"
+                "- Be unique and diverse while maintaining quality"
+            ),
+            SampleType.SINGLE_LABEL: (
+                "- Have the same type of label as the examples above\n"
+                "- Include reasoning traces explaining why it matches the pattern\n"
+                "- Be unique and diverse while maintaining quality"
+            ),
+            SampleType.MULTI_LABEL: (
+                "- Have labels that follow the same pattern as the examples above "
+                "(can be multiple labels)\n"
+                "- Include reasoning traces explaining why it matches the pattern\n"
+                "- Be unique and diverse while maintaining quality"
+            ),
+        }
+        return requirements_map.get(
+            sample_type,
+            requirements_map[SampleType.PLAIN_TEXT],
+        )
