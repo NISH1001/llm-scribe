@@ -6,6 +6,7 @@ from pydantic_ai import Agent
 from pydantic_ai.settings import ModelSettings
 
 from llmscribe.schema import GenerationSample, PromptTemplate, SampleType, TextSample
+from llmscribe.utils import detect_sample_type
 
 
 class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
@@ -65,31 +66,6 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         - Maintain high quality and coherence
         """
 
-    def _detect_sample_type(self, examples: List[TI]) -> SampleType:
-        """
-        Detect the type of samples being processed
-
-        Args:
-            examples: List of example samples
-
-        Returns:
-            SampleType enum indicating the detected type
-        """
-        if not examples:
-            return SampleType.PLAIN_TEXT
-
-        first_sample = examples[0]
-
-        # Check if sample has labels
-        if not hasattr(first_sample, "label"):
-            return SampleType.PLAIN_TEXT
-
-        # Check if it's multi-label (has 'labels' attribute with list)
-        if hasattr(first_sample, "labels") and isinstance(first_sample.labels, list):
-            return SampleType.MULTI_LABEL
-
-        return SampleType.SINGLE_LABEL
-
     def _format_examples_text(self, examples: List[TI], sample_type: SampleType) -> str:
         """
         Format examples into text representation
@@ -125,7 +101,7 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         Returns:
             Dictionary with context for prompt formatting
         """
-        sample_type = self._detect_sample_type(examples)
+        sample_type = detect_sample_type(examples)
 
         return {
             "num_examples": len(examples),
@@ -186,28 +162,10 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         template = self._get_prompt_template()
         return template.format(**context)
 
-    def update_system_prompt(self, new_prompt: str) -> None:
-        """Update the system prompt and reinitialize agent"""
-        self.system_prompt = new_prompt
-        self.agent = Agent(
-            model=self.model,
-            output_type=List[self.output_schema],
-            system_prompt=self.system_prompt,
-        )
-
-    def update_model(self, new_model: str) -> None:
-        """Update the model and reinitialize agent"""
-        self.model = new_model
-        self.agent = Agent(
-            model=self.model,
-            output_type=List[self.output_schema],
-            system_prompt=self.system_prompt,
-        )
-
     async def generate(
         self,
         examples: List[TI],
-        num_samples: int = 10,
+        num_samples: int = 5,
     ) -> List[TO]:
         """
         Generate new samples based on input examples

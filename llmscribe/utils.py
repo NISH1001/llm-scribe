@@ -1,15 +1,16 @@
 from enum import Enum
-from typing import List, Set
+from typing import List, Sequence, Set
 
 from pydantic import Field, computed_field, create_model
 
-from llmscribe.schema import GenerationSample
+from llmscribe.schema import GenerationSample, SampleType, TextSample
 
 
 def create_dynamic_schema_multiclass(allowed_labels: Set[str]) -> type:
     """
     Create a dynamic GenerationSample model with an Enum field for multiclass.
     """
+    allowed_labels = set(allowed_labels)
     Label = Enum("Label", {label.upper(): label for label in allowed_labels})
 
     # Create the dynamic model with field description
@@ -42,6 +43,7 @@ def create_dynamic_schema_multilabel(allowed_labels: Set[str]) -> type:
     """
     Create a dynamic GenerationSample model with an Enum field for multilabel.
     """
+    allowed_labels = set(allowed_labels)
     Label = Enum("Label", {label.upper(): label for label in allowed_labels})
 
     # Create the base model first with field description
@@ -82,3 +84,29 @@ def create_dynamic_schema_multilabel(allowed_labels: Set[str]) -> type:
     DynamicModel.label = label
 
     return DynamicModel
+
+
+def detect_sample_type(examples: Sequence[TextSample]) -> SampleType:
+    """
+    Detect the type of samples being processed
+
+    Args:
+        examples: List of example samples
+
+    Returns:
+        SampleType enum indicating the detected type
+    """
+    if not examples:
+        return SampleType.PLAIN_TEXT
+
+    first_sample = examples[0]
+
+    # if no label
+    if not hasattr(first_sample, "label"):
+        return SampleType.PLAIN_TEXT
+
+    # Check if it's multi-label (has 'labels' attribute with list)
+    if hasattr(first_sample, "labels") and isinstance(first_sample.labels, list):
+        return SampleType.MULTI_LABEL
+
+    return SampleType.SINGLE_LABEL
