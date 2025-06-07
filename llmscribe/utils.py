@@ -1,9 +1,15 @@
 from enum import Enum
-from typing import List, Sequence, Set
+from typing import List, Sequence, Set, cast
 
 from pydantic import Field, computed_field, create_model
 
-from llmscribe.schema import GenerationSample, SampleType, TextSample
+from llmscribe.schema import (
+    GenerationSample,
+    MultiClassExample,
+    MultiLabelExample,
+    SampleType,
+    TextSample,
+)
 
 
 def create_dynamic_schema_multiclass(allowed_labels: Set[str]) -> type:
@@ -110,3 +116,27 @@ def detect_sample_type(examples: Sequence[TextSample]) -> SampleType:
         return SampleType.MULTI_LABEL
 
     return SampleType.SINGLE_LABEL
+
+
+def extract_labels_from_examples(
+    examples: Sequence[TextSample],
+) -> Set[str]:
+    """
+    Extract unique labels from a sequence of TextSample objects.
+
+    Args:
+        examples: List of example samples
+
+    Returns:
+        Set of unique labels found in the examples
+    """
+    sample_type = detect_sample_type(examples)
+    if sample_type == SampleType.PLAIN_TEXT:
+        return set()
+    labels = set()
+    for example in examples:
+        if sample_type == SampleType.MULTI_LABEL:
+            labels.update(cast(MultiLabelExample, example).labels)
+        elif sample_type == SampleType.SINGLE_LABEL:
+            labels.add(cast(MultiClassExample, example).label)
+    return labels

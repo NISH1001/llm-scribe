@@ -33,8 +33,10 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
             temperature (float): The temperature setting for generation.
             debug (bool): Whether to enable debug mode.
         """
-        self.model = model
+        if output_schema is None:
+            raise ValueError("output_schema must be provided")
         self.output_schema = output_schema
+        self.model = model
         self.system_prompt = system_prompt or self._default_system_prompt
         self.prompt_template = prompt_template or PromptTemplate()
         self.temperature = temperature
