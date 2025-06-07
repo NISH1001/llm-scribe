@@ -41,11 +41,25 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         self.prompt_template = prompt_template or PromptTemplate()
         self.temperature = temperature
         self.debug = debug
-        self.agent = Agent(
+        self.agent = self.build_pydantic_agent(
             model=self.model,
-            output_type=list[self.output_schema],
+            output_schema=self.output_schema,
             system_prompt=self.system_prompt,
-            model_settings=ModelSettings(temperature=self.temperature),
+            temperature=self.temperature,
+        )
+
+    @staticmethod
+    def build_pydantic_agent(
+        model,
+        output_schema: type[TO],
+        system_prompt: str,
+        temperature: float,
+    ) -> Agent[None, List[TO]]:
+        return Agent(
+            model=model,
+            output_type=list[output_schema],
+            system_prompt=system_prompt,
+            model_settings=ModelSettings(temperature=temperature),
         )
 
     @property
@@ -164,6 +178,24 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         template = self._get_prompt_template()
         return template.format(**context)
 
+    async def _generate(
+        self,
+        agent: Agent[None, List[TO]],
+        examples: List[TI],
+        num_samples: int = 5,
+    ) -> List[TO]:
+        prompt = self.build_prompt(examples, num_samples)
+        if self.debug:
+            logger.debug(f"Generated prompt:\n{prompt}\n")
+        result = []
+        try:
+            result = await agent.run(prompt)
+            return result.output
+        except Exception as e:
+            logger.error(f"Generation failed: {e}")
+            result = []
+        return result
+
     async def generate(
         self,
         examples: List[TI],
@@ -179,15 +211,8 @@ class BaseGenerationAgent[TI: TextSample, TO: GenerationSample](ABC):
         Returns:
             List of newly generated samples
         """
-
-        prompt = self.build_prompt(examples, num_samples)
-        if self.debug:
-            logger.debug(f"Generated prompt:\n{prompt}\n")
-        result = []
-        try:
-            result = await self.agent.run(prompt)
-            return result.output
-        except Exception as e:
-            logger.error(f"Generation failed: {e}")
-            result = []
-        return result
+        return await self._generate(
+            agent=self.agent,
+            examples=examples,
+            num_samples=num_samples,
+        )
